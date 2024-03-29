@@ -293,10 +293,10 @@ func (of *OutputConfig) fix() error {
 	}
 
 	if of.BatchCmdCount <= 0 || of.BatchCmdCount > 200 {
-		of.BatchCmdCount = 100
+		of.BatchCmdCount = 20
 	}
 	if of.BatchTicker <= time.Millisecond || of.BatchTicker > 10*time.Second {
-		of.BatchTicker = 10 * time.Millisecond
+		of.BatchTicker = 3 * time.Millisecond
 	}
 	if of.KeepaliveTicker <= time.Second {
 		of.KeepaliveTicker = time.Second * 3
