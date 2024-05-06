@@ -36,9 +36,12 @@ jobs:
       - name: Create Zip Archive
         run: |
           zip redisGunYu-${{ steps.get_version.outputs.VERSION }}.darwin-amd64.zip redisGunYu.darwin-amd64
+          zip redisGunYu-${{ steps.get_version.outputs.VERSION }}.darwin-arm64.zip redisGunYu.darwin-arm64
+          zip redisGunYu-${{ steps.get_version.outputs.VERSION }}.win-amd64.zip redisGunYu.win-amd64
+          zip redisGunYu-${{ steps.get_version.outputs.VERSION }}.linux-amd64.zip redisGunYu.linux-amd64
 
-      - name: Upload MacOS Asset
-        id: upload_macOS_asset
+      - name: Upload MacOS amd64 Asset
+        id: upload_macOS_amd64_asset
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,3 +51,35 @@ jobs:
           asset_name: redisGunYu-${{ steps.get_version.outputs.VERSION }}.darwin-amd64.zip
           asset_content_type: application/zip
 
+      - name: Upload MacOS arm64 Asset
+        id: upload_macOS_arm64_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./redisGunYu-${{ steps.get_version.outputs.VERSION }}.darwin-arm64.zip
+          asset_name: redisGunYu-${{ steps.get_version.outputs.VERSION }}.darwin-arm64.zip
+          asset_content_type: application/zip
+
+      - name: Upload windows amd64 Asset
+        id: upload_win_amd64_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./redisGunYu-${{ steps.get_version.outputs.VERSION }}.win-amd64.zip
+          asset_name: redisGunYu-${{ steps.get_version.outputs.VERSION }}.win-amd64.zip
+          asset_content_type: application/zip
+
+      - name: Upload linux amd64 Asset
+        id: upload_win_amd64_asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./redisGunYu-${{ steps.get_version.outputs.VERSION }}.linux-amd64.zip
+          asset_name: redisGunYu-${{ steps.get_version.outputs.VERSION }}.linux-amd64.zip
+          asset_content_type: application/zip
