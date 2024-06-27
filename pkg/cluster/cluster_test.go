@@ -16,8 +16,8 @@ func TestClusterSuite(t *testing.T) {
 type clusterTestSuite struct {
 	suite.Suite
 
-	cliA *Cluster
-	cliB *Cluster
+	cliA Cluster
+	cliB Cluster
 	valA string
 	valB string
 
@@ -30,11 +30,11 @@ func (ts *clusterTestSuite) SetupTest() {
 	ts.pref1 = "/test/election"
 	ts.ttl = 3
 	var err error
-	ts.cliA, err = NewCluster(context.Background(), config.EtcdConfig{Endpoints: []string{"localhost:2379"}, Ttl: ts.ttl})
+	ts.cliA, err = NewEtcdCluster(context.Background(), config.EtcdConfig{Endpoints: []string{"localhost:2379"}, Ttl: ts.ttl})
 	ts.Nil(err)
 	ts.valA = "A"
 
-	ts.cliB, err = NewCluster(context.Background(), config.EtcdConfig{Endpoints: []string{"localhost:2379"}, Ttl: ts.ttl})
+	ts.cliB, err = NewEtcdCluster(context.Background(), config.EtcdConfig{Endpoints: []string{"localhost:2379"}, Ttl: ts.ttl})
 	ts.Nil(err)
 	ts.valB = "B"
 }

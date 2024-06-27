@@ -49,7 +49,7 @@ type SyncerCmd struct {
 	httpSvr       *http.Server
 	waitCloser    usync.WaitCloser // object scope
 	runWait       usync.WaitCloser // run function scope
-	clusterCli    *cluster.Cluster
+	clusterCli    cluster.Cluster
 	registerKey   string
 	multiListener cmux.CMux
 }
@@ -455,7 +455,7 @@ func (sc *SyncerCmd) run() error {
 	}
 
 	// all syncers share one lease
-	cli, err := cluster.NewCluster(runWait.Context(), *config.Get().Cluster.MetaEtcd)
+	cli, err := cluster.NewEtcdCluster(runWait.Context(), *config.Get().Cluster.MetaEtcd)
 	if err != nil {
 		runWait.Close(err)
 	} else {
@@ -503,7 +503,7 @@ func (sc *SyncerCmd) runSingle(runWait usync.WaitCloser, cfgs []syncer.SyncerCon
 	}
 }
 
-func (sc *SyncerCmd) runCluster(runWait usync.WaitCloser, cli *cluster.Cluster, cfgs []syncer.SyncerConfig) {
+func (sc *SyncerCmd) runCluster(runWait usync.WaitCloser, cli cluster.Cluster, cfgs []syncer.SyncerConfig) {
 	for _, tmp := range cfgs {
 		runWait.WgAdd(1)
 		cfg := tmp
@@ -592,7 +592,7 @@ func (sc *SyncerCmd) runCluster(runWait usync.WaitCloser, cli *cluster.Cluster, 
 	}
 }
 
-func (sc *SyncerCmd) clusterCampaign(ctx context.Context, elect *cluster.Election) (cluster.ClusterRole, error) {
+func (sc *SyncerCmd) clusterCampaign(ctx context.Context, elect cluster.Election) (cluster.ClusterRole, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Get().Cluster.LeaseRenewInterval)
 	defer cancel()
 	newRole, err := elect.Campaign(ctx, config.Get().Server.ListenPeer)
@@ -603,7 +603,7 @@ func (sc *SyncerCmd) clusterCampaign(ctx context.Context, elect *cluster.Electio
 	return newRole, err
 }
 
-func (sc *SyncerCmd) clusterRenew(ctx context.Context, elect *cluster.Election) error {
+func (sc *SyncerCmd) clusterRenew(ctx context.Context, elect cluster.Election) error {
 	ctx, cancel := context.WithTimeout(ctx, config.Get().Cluster.LeaseRenewInterval)
 	defer cancel()
 	err := elect.Renew(ctx)
@@ -613,7 +613,7 @@ func (sc *SyncerCmd) clusterRenew(ctx context.Context, elect *cluster.Election) 
 	return err
 }
 
-func (sc *SyncerCmd) clusterTicker(wait usync.WaitCloser, role cluster.ClusterRole, elect *cluster.Election, input string) {
+func (sc *SyncerCmd) clusterTicker(wait usync.WaitCloser, role cluster.ClusterRole, elect cluster.Election, input string) {
 	if wait.IsClosed() {
 		return
 	}

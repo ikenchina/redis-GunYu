@@ -201,6 +201,7 @@ func (cluster *Cluster) IterateNodes(result func(string, interface{}, error), cm
 // See README.md for more details.
 // See full redis command list: http://www.redis.io/commands
 func (cluster *Cluster) Do(cmd string, args ...interface{}) (interface{}, error) {
+
 	node, err := cluster.ChooseNodeWithCmd(cmd, args...)
 	if err != nil {
 		return nil, fmt.Errorf("run ChooseNodeWithCmd failed[%w]", err)
@@ -661,6 +662,18 @@ func (cluster *Cluster) getNodeByAddr(addr string) (*redisNode, error) {
 	}
 
 	return node, nil
+}
+
+func (cluster *Cluster) getAllNodes() []*redisNode {
+	nodes := []*redisNode{}
+
+	cluster.rwLock.RLock()
+	defer cluster.rwLock.RUnlock()
+
+	for _, n := range cluster.nodes {
+		nodes = append(nodes, n)
+	}
+	return nodes
 }
 
 func (cluster *Cluster) getNodeByKey(arg interface{}) (*redisNode, error) {

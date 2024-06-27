@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/mgtv-tech/redis-GunYu/config"
@@ -20,6 +21,7 @@ const (
 )
 
 type RedisConn struct {
+	guard       sync.RWMutex
 	protoReader *proto.Reader
 	protoWriter *proto.Writer
 	conn        net.Conn
@@ -108,6 +110,9 @@ func (r *RedisConn) doGetString(cmd string, args ...interface{}) (string, error)
 }
 
 func (r *RedisConn) Do(cmd string, args ...interface{}) (interface{}, error) {
+	r.guard.Lock()
+	defer r.guard.Unlock()
+
 	err := r.SendAndFlush(cmd, args...)
 	if err != nil {
 		return nil, err
@@ -121,6 +126,9 @@ func (r *RedisConn) IterateNodes(result func(string, interface{}, error), cmd st
 
 // @TODO 需要调用Flush吗？cluster模式并没有调用
 func (r *RedisConn) Send(cmd string, args ...interface{}) error {
+	r.guard.Lock()
+	defer r.guard.Unlock()
+
 	argsInterface := make([]interface{}, len(args)+1)
 	argsInterface[0] = cmd
 	copy(argsInterface[1:], args)
@@ -129,6 +137,9 @@ func (r *RedisConn) Send(cmd string, args ...interface{}) error {
 }
 
 func (r *RedisConn) SendAndFlush(cmd string, args ...interface{}) error {
+	r.guard.Lock()
+	defer r.guard.Unlock()
+
 	err := r.Send(cmd, args...)
 	if err != nil {
 		return err
@@ -141,6 +152,9 @@ func (r *RedisConn) flush() error {
 }
 
 func (r *RedisConn) Receive() (interface{}, error) {
+	r.guard.Lock()
+	defer r.guard.Unlock()
+
 	return r.protoReader.ReadReply()
 }
 
@@ -161,6 +175,8 @@ func (r *RedisConn) BufioWriter() *bufio.Writer {
 }
 
 func (r *RedisConn) Flush() error {
+	r.guard.Lock()
+	defer r.guard.Unlock()
 	return r.flush()
 }
 
@@ -187,7 +203,7 @@ func (tb *batcher) Len() int {
 }
 
 func (tb *batcher) Exec() ([]interface{}, error) {
-
+	replies := []interface{}{}
 	exec := util.OpenCircuitExec{}
 
 	for i := 0; i < len(tb.cmds); i++ {
@@ -202,7 +218,6 @@ func (tb *batcher) Exec() ([]interface{}, error) {
 
 	receiveSize := len(tb.cmds)
 
-	replies := []interface{}{}
 	for i := 0; i < receiveSize; i++ {
 		rpl, err := tb.conn.Receive()
 		if err != nil {

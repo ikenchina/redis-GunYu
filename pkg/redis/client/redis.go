@@ -33,5 +33,7 @@ func NewRedis(cfg config.RedisConfig) (Redis, error) {
 	if cfg.IsCluster() {
 		return NewRedisCluster(cfg)
 	}
+
+	// @TODO it is not thread safe
 	return conn.NewRedisConn(cfg)
 }
