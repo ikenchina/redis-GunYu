@@ -15,6 +15,7 @@ type etcdElection struct {
 	rev       int64
 	keyPrefix string
 	sess      *concurrency.Session
+	id        string
 }
 
 func (el *etcdElection) Renew(ctx context.Context) error {
@@ -44,8 +45,8 @@ func (e *etcdElection) Leader(ctx context.Context) (*RoleInfo, error) {
 	}, nil
 }
 
-func (e *etcdElection) Campaign(ctx context.Context, val string) (ClusterRole, error) {
-	resp, err := e.try(ctx, val)
+func (e *etcdElection) Campaign(ctx context.Context) (ClusterRole, error) {
+	resp, err := e.try(ctx, e.id)
 	if err != nil {
 		return RoleCandidate, err
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mgtv-tech/redis-GunYu/config"
@@ -28,7 +29,8 @@ type RedisConn struct {
 	// @TODO
 	// readTimeout  time.Duration
 	// writeTimeout time.Duration
-	cfg config.RedisConfig
+	cfg    config.RedisConfig
+	closed atomic.Bool
 }
 
 func NewRedisConn(cfg config.RedisConfig) (*RedisConn, error) {
@@ -80,12 +82,14 @@ func NewRedisConn(cfg config.RedisConfig) (*RedisConn, error) {
 }
 
 func (r *RedisConn) Close() error {
-	// @TODO graceful close
-	err := r.conn.Close()
-	if err != nil {
-		log.Errorf("close redis error : %v", err)
+	if r.closed.CompareAndSwap(false, true) {
+		err := r.conn.Close()
+		if err != nil {
+			log.Errorf("close redis error : %v", err)
+		}
+		return err
 	}
-	return err
+	return nil
 }
 
 func (r *RedisConn) RedisType() config.RedisType {
@@ -97,11 +101,11 @@ func (r *RedisConn) Addresses() []string {
 }
 
 func (r *RedisConn) doGetString(cmd string, args ...interface{}) (string, error) {
-	err := r.SendAndFlush(cmd, args...)
+	err := r.sendAndFlush(cmd, args...)
 	if err != nil {
 		return "", err
 	}
-	replyInterface, err := r.Receive()
+	replyInterface, err := r.receive()
 	if err != nil {
 		return "", err
 	}
@@ -113,11 +117,11 @@ func (r *RedisConn) Do(cmd string, args ...interface{}) (interface{}, error) {
 	r.guard.Lock()
 	defer r.guard.Unlock()
 
-	err := r.SendAndFlush(cmd, args...)
+	err := r.sendAndFlush(cmd, args...)
 	if err != nil {
 		return nil, err
 	}
-	return r.Receive()
+	return r.receive()
 }
 
 func (r *RedisConn) IterateNodes(result func(string, interface{}, error), cmd string, args ...interface{}) {
@@ -129,6 +133,10 @@ func (r *RedisConn) Send(cmd string, args ...interface{}) error {
 	r.guard.Lock()
 	defer r.guard.Unlock()
 
+	return r.send(cmd, args...)
+}
+
+func (r *RedisConn) send(cmd string, args ...interface{}) error {
 	argsInterface := make([]interface{}, len(args)+1)
 	argsInterface[0] = cmd
 	copy(argsInterface[1:], args)
@@ -140,7 +148,11 @@ func (r *RedisConn) SendAndFlush(cmd string, args ...interface{}) error {
 	r.guard.Lock()
 	defer r.guard.Unlock()
 
-	err := r.Send(cmd, args...)
+	return r.sendAndFlush(cmd, args...)
+}
+
+func (r *RedisConn) sendAndFlush(cmd string, args ...interface{}) error {
+	err := r.send(cmd, args...)
 	if err != nil {
 		return err
 	}
@@ -155,6 +167,10 @@ func (r *RedisConn) Receive() (interface{}, error) {
 	r.guard.Lock()
 	defer r.guard.Unlock()
 
+	return r.receive()
+}
+
+func (r *RedisConn) receive() (interface{}, error) {
 	return r.protoReader.ReadReply()
 }
 
@@ -166,10 +182,12 @@ func (r *RedisConn) ReceiveBool() (bool, error) {
 	return common.Bool(r.Receive())
 }
 
+// Reader is not thread safe
 func (r *RedisConn) BufioReader() *bufio.Reader {
 	return r.protoReader.BufioReader()
 }
 
+// Writer is not thread safe
 func (r *RedisConn) BufioWriter() *bufio.Writer {
 	return r.protoWriter.BufioWriter()
 }
@@ -207,7 +225,7 @@ func (tb *batcher) Exec() ([]interface{}, error) {
 	exec := util.OpenCircuitExec{}
 
 	for i := 0; i < len(tb.cmds); i++ {
-		exec.Do(func() error { return tb.conn.Send(tb.cmds[i], tb.cmdArgs[i]...) })
+		exec.Do(func() error { return tb.conn.send(tb.cmds[i], tb.cmdArgs[i]...) })
 	}
 
 	err := exec.Do(func() error { return tb.conn.flush() })
@@ -219,7 +237,7 @@ func (tb *batcher) Exec() ([]interface{}, error) {
 	receiveSize := len(tb.cmds)
 
 	for i := 0; i < receiveSize; i++ {
-		rpl, err := tb.conn.Receive()
+		rpl, err := tb.conn.receive()
 		if err != nil {
 			tb.conn.Close()
 			return nil, err

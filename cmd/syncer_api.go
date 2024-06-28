@@ -636,6 +636,6 @@ func (sc *SyncerCmd) allOutputs(ctx context.Context) []config.RedisConfig {
 }
 
 func (sc *SyncerCmd) allSyncers(ctx context.Context) ([]string, error) {
-	ips, err := sc.clusterCli.Discovery(sc.getRunWait().Context(), sc.registerKey)
+	ips, err := sc.clusterCli.Discover(sc.getRunWait().Context(), sc.registerKey)
 	return ips, err
 }

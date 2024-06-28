@@ -510,7 +510,7 @@ func (sc *SyncerCmd) runCluster(runWait usync.WaitCloser, cli cluster.Cluster, c
 		usync.SafeGo(func() {
 			defer runWait.WgDone()
 			key := fmt.Sprintf("/redis-gunyu/%s/input-election/%s/", config.Get().Cluster.GroupName, cfg.Input.Address())
-			elect := cli.NewElection(runWait.Context(), key)
+			elect := cli.NewElection(runWait.Context(), key, config.Get().Server.ListenPeer)
 			role := cluster.RoleCandidate
 
 			for !runWait.IsClosed() {
@@ -595,7 +595,7 @@ func (sc *SyncerCmd) runCluster(runWait usync.WaitCloser, cli cluster.Cluster, c
 func (sc *SyncerCmd) clusterCampaign(ctx context.Context, elect cluster.Election) (cluster.ClusterRole, error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Get().Cluster.LeaseRenewInterval)
 	defer cancel()
-	newRole, err := elect.Campaign(ctx, config.Get().Server.ListenPeer)
+	newRole, err := elect.Campaign(ctx)
 	sc.logger.Debugf("campaign : newRole(%v), error(%v)", newRole, err)
 	if err != nil {
 		sc.logger.Errorf("campaign : newRole(%v), error(%v)", newRole, err)

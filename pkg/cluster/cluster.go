@@ -25,14 +25,14 @@ type RoleInfo struct {
 
 type Cluster interface {
 	Close() error
-	NewElection(ctx context.Context, prefix string) Election
-	Register(ctx context.Context, svcPath string, id string) error
-	Discovery(ctx context.Context, svcPath string) ([]string, error)
+	NewElection(ctx context.Context, electionKey string, id string) Election
+	Register(ctx context.Context, serviceName string, instanceID string) error
+	Discover(ctx context.Context, serviceName string) ([]string, error)
 }
 
 type Election interface {
-	Renew(ctx context.Context) error
-	Leader(ctx context.Context) (*RoleInfo, error)
-	Campaign(ctx context.Context, val string) (ClusterRole, error)
-	Resign(ctx context.Context) error
+	Renew(context.Context) error
+	Leader(context.Context) (*RoleInfo, error)
+	Campaign(context.Context) (ClusterRole, error)
+	Resign(context.Context) error
 }

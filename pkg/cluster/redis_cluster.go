@@ -44,12 +44,17 @@ func (c *redisCluster) Close() error {
 	return c.redisCli.Close()
 }
 
-func (c *redisCluster) NewElection(ctx context.Context, prefix string) Election {
-	return nil
+func (c *redisCluster) NewElection(ctx context.Context, electionKey string, id string) Election {
+	return &redisElection{
+		key: electionKey,
+		cli: c.redisCli,
+		ttl: c.ttl,
+		id:  id,
+	}
 }
 
-func (c *redisCluster) Register(ctx context.Context, svcPath string, id string) error {
-	err := common.StringIsOk(c.redisCli.Do("SET", svcPath+id, id, "EX", c.ttl))
+func (c *redisCluster) Register(ctx context.Context, serviceName string, instanceID string) error {
+	err := common.StringIsOk(c.redisCli.Do("SET", serviceName+instanceID, instanceID, "EX", c.ttl))
 	if err != nil {
 		return err
 	}
@@ -63,12 +68,12 @@ func (c *redisCluster) Register(ctx context.Context, svcPath string, id string) 
 		for {
 			select {
 			case <-time.After(itv):
-				err := common.StringIsOk(c.redisCli.Do("SET", svcPath+id, id, "EX", c.ttl))
+				err := common.StringIsOk(c.redisCli.Do("SET", serviceName+instanceID, instanceID, "EX", c.ttl))
 				if err != nil {
-					log.Errorf("Register : id(%d), error(%v)", id, err)
+					log.Errorf("Register : instanceID(%d), error(%v)", instanceID, err)
 				}
 			case <-c.ctx.Done():
-				c.redisCli.Do("DEL", svcPath+id)
+				c.redisCli.Do("DEL", serviceName+instanceID)
 				return
 			}
 		}
@@ -76,9 +81,9 @@ func (c *redisCluster) Register(ctx context.Context, svcPath string, id string) 
 	return nil
 }
 
-func (c *redisCluster) Discovery(ctx context.Context, svcPath string) ([]string, error) {
+func (c *redisCluster) Discover(ctx context.Context, serviceName string) ([]string, error) {
 	bb := c.redisCli.NewBatcher()
-	bb.Put("KEYS", svcPath+"*")
+	bb.Put("KEYS", serviceName+"*")
 	replies, err := bb.Exec()
 	if err != nil {
 		return nil, err
@@ -91,7 +96,7 @@ func (c *redisCluster) Discovery(ctx context.Context, svcPath string) ([]string,
 			return nil, err
 		}
 		for _, s := range srs {
-			id := strings.TrimLeft(s, svcPath)
+			id := strings.TrimLeft(s, serviceName)
 			if len(id) > 0 {
 				ids = append(ids, id)
 			}

@@ -49,21 +49,22 @@ func (c *etcdCluster) Close() error {
 	return nil
 }
 
-func (c *etcdCluster) NewElection(ctx context.Context, prefix string) Election {
+func (c *etcdCluster) NewElection(ctx context.Context, electionPath string, id string) Election {
 	return &etcdElection{
 		cli:       c.cli,
-		keyPrefix: prefix,
+		keyPrefix: electionPath,
 		sess:      c.sess,
+		id:        id,
 	}
 }
 
-func (c *etcdCluster) Register(ctx context.Context, svcPath string, id string) error {
-	_, err := c.cli.Put(ctx, svcPath+id, id, clientv3.WithLease(c.sess.Lease()))
+func (c *etcdCluster) Register(ctx context.Context, serviceName string, instanceID string) error {
+	_, err := c.cli.Put(ctx, serviceName+instanceID, instanceID, clientv3.WithLease(c.sess.Lease()))
 	return err
 }
 
-func (c *etcdCluster) Discovery(ctx context.Context, svcPath string) ([]string, error) {
-	resp, err := c.cli.Get(ctx, svcPath, clientv3.WithPrefix())
+func (c *etcdCluster) Discover(ctx context.Context, serviceName string) ([]string, error) {
+	resp, err := c.cli.Get(ctx, serviceName, clientv3.WithPrefix())
 	if err != nil {
 		return nil, err
 	}

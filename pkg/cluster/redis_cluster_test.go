@@ -3,19 +3,20 @@ package cluster
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/mgtv-tech/redis-GunYu/config"
 	"github.com/mgtv-tech/redis-GunYu/pkg/util"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRegistration(t *testing.T) {
+func TestRegistry(t *testing.T) {
 
 	cfgs := []config.RedisConfig{
-		// {
-		// 	Addresses: []string{"localhost:16300"},
-		// 	Type:      config.RedisTypeCluster,
-		// },
+		{
+			Addresses: []string{"localhost:16300"},
+			Type:      config.RedisTypeCluster,
+		},
 		{
 			Addresses: []string{"localhost:6379"},
 			Type:      config.RedisTypeStandalone,
@@ -42,7 +43,7 @@ func TestRegistration(t *testing.T) {
 			assert.Nil(t, rc2.Register(context.Background(), prefix, svcs[2]))
 
 			// discovery
-			dis, err := rc2.Discovery(context.Background(), prefix)
+			dis, err := rc2.Discover(context.Background(), prefix)
 			assert.Nil(t, err)
 			ids := util.SliceToMap[string](dis)
 
@@ -51,7 +52,7 @@ func TestRegistration(t *testing.T) {
 				assert.True(t, ok)
 			}
 
-			//  unregistration
+			//  deregistration
 			rc1.Close()
 			rc2.Close()
 
@@ -59,7 +60,7 @@ func TestRegistration(t *testing.T) {
 			rc3, err := NewRedisCluster(ctx, cfg, 10)
 			assert.Nil(t, err)
 
-			dis, err = rc3.Discovery(context.Background(), prefix)
+			dis, err = rc3.Discover(context.Background(), prefix)
 			assert.Nil(t, err)
 			ids = util.SliceToMap[string](dis)
 
@@ -69,6 +70,42 @@ func TestRegistration(t *testing.T) {
 			}
 			rc3.Close()
 		})
+
+		t.Run("keepalive", func(t *testing.T) {
+			ctx := context.Background()
+			rc1, err := NewRedisCluster(ctx, cfg, 4)
+			assert.Nil(t, err)
+
+			rc2, err := NewRedisCluster(ctx, cfg, 4)
+			assert.Nil(t, err)
+
+			svcs := []string{"a1", "a2", "b1"}
+			prefix := "/reg/"
+
+			// registration
+			assert.Nil(t, rc1.Register(context.Background(), prefix, svcs[0]))
+			assert.Nil(t, rc2.Register(context.Background(), prefix, svcs[1]))
+			assert.Nil(t, rc2.Register(context.Background(), prefix, svcs[2]))
+
+			time.Sleep(time.Second * 5)
+
+			// discovery
+			dis, err := rc2.Discover(context.Background(), prefix)
+			assert.Nil(t, err)
+			ids := util.SliceToMap[string](dis)
+
+			for _, svc := range svcs {
+				_, ok := ids[svc]
+				assert.True(t, ok)
+			}
+
+			//  deregistration
+			rc1.Close()
+			rc2.Close()
+		})
 	}
+}
+
+func TestCampaign(t *testing.T) {
 
 }

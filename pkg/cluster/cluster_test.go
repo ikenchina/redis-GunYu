@@ -47,20 +47,20 @@ func (ts *clusterTestSuite) TearDownTest() {
 func (ts *clusterTestSuite) TestElection() {
 	ctx := context.Background()
 
-	eleA := ts.cliA.NewElection(ctx, ts.pref1)
-	role, err := eleA.Campaign(ctx, ts.valA)
+	eleA := ts.cliA.NewElection(ctx, ts.pref1, ts.valA)
+	role, err := eleA.Campaign(ctx)
 	ts.Nil(err)
 	ts.Equal(RoleLeader, role)
 
-	eleB := ts.cliB.NewElection(ctx, ts.pref1)
+	eleB := ts.cliB.NewElection(ctx, ts.pref1, ts.valB)
 
-	roleB, err := eleB.Campaign(ctx, ts.valB)
+	roleB, err := eleB.Campaign(ctx)
 	ts.Nil(err)
 	ts.Equal(RoleFollower, roleB)
 
 	ts.cliA.Close()
 
-	roleB, err = eleB.Campaign(ctx, ts.valB)
+	roleB, err = eleB.Campaign(ctx)
 	ts.Nil(err)
 	ts.Equal(RoleLeader, roleB)
 
@@ -74,7 +74,7 @@ func (ts *clusterTestSuite) TestSvcDs() {
 	ts.Nil(ts.cliA.Register(ctx, path+svcs[0], svcs[0]))
 	ts.Nil(ts.cliA.Register(ctx, path+svcs[1], svcs[1]))
 
-	acts, err := ts.cliB.Discovery(ctx, path)
+	acts, err := ts.cliB.Discover(ctx, path)
 	ts.Nil(err)
 
 	ts.Equal(svcs, acts)
@@ -90,7 +90,7 @@ func (ts *clusterTestSuite) TestSvcLease() {
 
 	ts.cliA.Close()
 
-	acts, err := ts.cliB.Discovery(ctx, path)
+	acts, err := ts.cliB.Discover(ctx, path)
 	ts.Nil(err)
 
 	ts.Equal(1, len(acts))
