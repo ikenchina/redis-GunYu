@@ -122,7 +122,7 @@ func (be *BinEntry) PrintString() []string {
 	case RdbObjectSet:
 	case RdbObjectZSet:
 		buf := bytes.NewBuffer(make([]byte, 0))
-		buf.WriteString(fmt.Sprintf("zset : key(%s) : ", be.Key))
+		buf.WriteString(fmt.Sprintf("zset : key(%s) expire(%v) : ", be.Key, be.ExpireAt))
 		be.ObjectParser.ExecCmd(func(cmd string, args ...interface{}) error {
 			if len(args) == 3 {
 				buf.WriteString(fmt.Sprintf("[%s, %s], ", args[1].([]byte), args[2].([]byte)))
