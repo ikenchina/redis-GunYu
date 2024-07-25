@@ -98,7 +98,7 @@ func LoadFlags() error {
 			return err
 		}
 	} else if flagVar.Cmd == "store" {
-		keys := strings.Split(*storeFileterKeys, ",")
+		keys := strings.Split(*storeFileterKeys, ";")
 		flagVar.StorerCmd.Filter.Keys = keys
 	}
 
