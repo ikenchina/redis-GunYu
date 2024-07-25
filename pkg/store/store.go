@@ -109,7 +109,7 @@ func (s *Storer) newRunId(id string) error {
 	s.runId = id
 	s.dir = dir
 
-	rdbAof := s.initDataSet()
+	rdbAof := initDataSet(s.logger, s.dir)
 	if rdbAof != nil {
 		s.dataSetMux.Lock()
 		s.dataSet = rdbAof
@@ -286,7 +286,7 @@ func (s *Storer) GetReader(offset int64, verifyCrc bool) (*Reader, error) {
 		return nil, os.ErrNotExist
 	}
 
-	rr, err := NewAofRotateReader(s.dir, aof.Left(), s, pipew, verifyCrc)
+	rr, err := NewAofRotateReader(s.dir, aof.Left(), s, pipew, verifyCrc, false)
 	if err != nil {
 		return nil, err
 	}
@@ -458,8 +458,8 @@ func (s *Storer) newAofWCloseObserver(w *AofWriter, ds *dataSet) func(args ...in
 	}
 }
 
-func (s *Storer) initDataSet() *dataSet {
-	dir := s.dir
+func initDataSet(logger log.Logger, dbDir string) *dataSet {
+	dir := dbDir
 	// template variable needn't mutex
 	aofSegs := []*dataSetAof{}
 	var rdb *dataSetRdb
@@ -472,7 +472,7 @@ func (s *Storer) initDataSet() *dataSet {
 				fn := strings.TrimSuffix(info.Name(), ".aof")
 				ofs, err := strconv.ParseInt(fn, 10, 64)
 				if err != nil {
-					s.logger.Errorf("wrong aof file : name(%s)", info.Name())
+					logger.Errorf("wrong aof file : name(%s)", info.Name())
 					return nil
 				}
 				a := &dataSetAof{
@@ -496,28 +496,28 @@ func (s *Storer) initDataSet() *dataSet {
 		return nil
 	})
 	if err != nil {
-		s.logger.Errorf("%v", err)
+		logger.Errorf("%v", err)
 		return nil
 	}
 
 	ds := newDataSet(rdb, aofSegs)
 	dRdb, dAofs := ds.TruncateGap()
 	if dRdb != nil {
-		opath := rdbFilePath(s.dir, dRdb.Left(), dRdb.Size())
+		opath := rdbFilePath(dbDir, dRdb.Left(), dRdb.Size())
 		err := os.Remove(opath)
 		if err != nil {
-			s.logger.Errorf("remove rdb file : rdb(%s), error(%v)", opath, err)
+			logger.Errorf("remove rdb file : rdb(%s), error(%v)", opath, err)
 		} else {
-			s.logger.Infof("remove rdb file : rdb(%s)", opath)
+			logger.Infof("remove rdb file : rdb(%s)", opath)
 		}
 	}
 	for _, a := range dAofs {
-		opath := aofFilePath(s.dir, a.Left())
+		opath := aofFilePath(dbDir, a.Left())
 		err := os.Remove(opath)
 		if err != nil {
-			s.logger.Errorf("remove aof file : aof(%s), error(%v)", opath, err)
+			logger.Errorf("remove aof file : aof(%s), error(%v)", opath, err)
 		} else {
-			s.logger.Infof("remove aof file : aof(%s)", opath)
+			logger.Infof("remove aof file : aof(%s)", opath)
 		}
 	}
 

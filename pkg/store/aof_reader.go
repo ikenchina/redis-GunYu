@@ -24,32 +24,34 @@ type aofStorer interface {
 }
 
 type AofRotateReader struct {
-	writer    io.WriteCloser
-	mux       sync.RWMutex
-	dir       string
-	file      *os.File
-	right     int64
-	left      int64
-	pos       int64
-	filepath  string
-	header    [headerSize]byte
-	closed    atomic.Bool
-	logger    log.Logger
-	verifyCrc bool
-	aof       aofStorer
-	observer  atomic.Pointer[Observer]
-	wait      usync.WaitCloser
+	writer      io.WriteCloser
+	mux         sync.RWMutex
+	dir         string
+	file        *os.File
+	right       int64
+	left        int64
+	pos         int64
+	filepath    string
+	header      [headerSize]byte
+	closed      atomic.Bool
+	logger      log.Logger
+	verifyCrc   bool
+	aof         aofStorer
+	observer    atomic.Pointer[Observer]
+	wait        usync.WaitCloser
+	stopLastEof bool
 }
 
-func NewAofRotateReader(dir string, offset int64, aof aofStorer, writer io.WriteCloser, verifyCrc bool) (*AofRotateReader, error) {
+func NewAofRotateReader(dir string, offset int64, aof aofStorer, writer io.WriteCloser, verifyCrc bool, stopLastEof bool) (*AofRotateReader, error) {
 	log.Debugf("NewAofReader : dir(%s), offset(%d)", dir, offset)
 
 	r := &AofRotateReader{
-		writer:    writer,
-		dir:       dir,
-		verifyCrc: verifyCrc,
-		aof:       aof,
-		logger:    log.WithLogger(config.LogModuleName("[AofRotateReader] ")),
+		writer:      writer,
+		dir:         dir,
+		verifyCrc:   verifyCrc,
+		aof:         aof,
+		logger:      log.WithLogger(config.LogModuleName("[AofRotateReader] ")),
+		stopLastEof: stopLastEof,
 	}
 	r.wait = usync.NewWaitCloser(func(err error) {
 		r.close()
@@ -280,6 +282,8 @@ func (r *AofRotateReader) read(buf []byte) (n int, err error) {
 		// new aof?
 		if r.left != r.aof.lastSeg() {
 			r.tryReadNextFile(r.right)
+		} else if r.stopLastEof {
+			return 0, io.EOF
 		}
 		time.Sleep(time.Millisecond * 10)
 		n, err = r.file.Read(buf)

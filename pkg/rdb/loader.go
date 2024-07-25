@@ -105,6 +105,40 @@ func (be *BinEntry) DumpValue() []byte {
 	return CreateValueDump(be.Type, be.value)
 }
 
+func (be *BinEntry) PrintString() []string {
+	switch be.ObjectParser.Type() {
+	case RdbObjectString:
+		return []string{fmt.Sprintf("string : key(%s), value(%s), expireAt(%d)", be.Key, be.ObjectParser.Value(), be.ExpireAt)}
+	case RdbObjectList:
+		buf := bytes.NewBuffer(make([]byte, 0))
+		buf.WriteString(fmt.Sprintf("list : key(%s) : ", be.Key))
+		be.ObjectParser.ExecCmd(func(cmd string, args ...interface{}) error {
+			if len(args) == 2 {
+				buf.WriteString(fmt.Sprintf("%s, ", args[1].([]byte)))
+			}
+			return nil
+		})
+		return []string{buf.String()}
+	case RdbObjectSet:
+	case RdbObjectZSet:
+		buf := bytes.NewBuffer(make([]byte, 0))
+		buf.WriteString(fmt.Sprintf("zset : key(%s) : ", be.Key))
+		be.ObjectParser.ExecCmd(func(cmd string, args ...interface{}) error {
+			if len(args) == 3 {
+				buf.WriteString(fmt.Sprintf("[%s, %s], ", args[1].([]byte), args[2].([]byte)))
+			}
+			return nil
+		})
+		return []string{buf.String()}
+	case RdbObjectHash:
+	case RdbObjectStream:
+	case RdbObjectModule:
+	case RdbObjectFunction:
+	case RdbObjectAux:
+	}
+	return nil
+}
+
 func (l *Loader) Next() (entry *BinEntry, err error) {
 	defer util.Xrecover(&err)
 

@@ -13,7 +13,7 @@ input:
 channel:
   storer:
     dirPath: /tmp/redisgunyu-cluster2
-    maxSize: 209715200
+    maxSize: 2097152000
     logSize: 20971520
   staleCheckpointDuration: 10m
 output:
@@ -29,8 +29,8 @@ log:
   level: info
   handler:
     stdout: true
-  withCaller: false
-  withFunc: false
+  withCaller: true
+  withFunc: true
 cluster:
   groupName: redis1
   leaseTimeout: 9s

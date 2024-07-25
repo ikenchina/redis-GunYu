@@ -28,6 +28,17 @@ type Flags struct {
 	RdbCmd     RdbCmdFlags
 	DiffCmd    DiffCmdFlags
 	AofCmd     AofCmdFlags
+	StorerCmd  StorerFlags
+}
+
+type StorerFilterFlags struct {
+	Db   int
+	Keys []string
+}
+
+type StorerFlags struct {
+	Dir    string
+	Filter StorerFilterFlags
 }
 
 type RdbCmdFlags struct {
@@ -68,6 +79,10 @@ func LoadFlags() error {
 	flag.Int64Var(&flagVar.AofCmd.Offset, "aof.offset", 0, "aof offset")
 	flag.Int64Var(&flagVar.AofCmd.Size, "aof.size", -1, "aof size")
 
+	flag.StringVar(&flagVar.StorerCmd.Dir, "store.dir", "", "directory")
+	flag.IntVar(&flagVar.StorerCmd.Filter.Db, "store.filter.db", -1, "db")
+	storeFileterKeys := flag.String("store.filter.keys", "", "keys")
+
 	tmpCfg := Config{}
 	FlagsParseToStruct("sync", &tmpCfg)
 
@@ -82,6 +97,9 @@ func LoadFlags() error {
 		if err := cfg.fix(); err != nil {
 			return err
 		}
+	} else if flagVar.Cmd == "store" {
+		keys := strings.Split(*storeFileterKeys, ",")
+		flagVar.StorerCmd.Filter.Keys = keys
 	}
 
 	return nil

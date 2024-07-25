@@ -35,7 +35,7 @@ func (ts *aofReaderTestSuite) TearDownSuite() {
 }
 
 func (ts *aofReaderTestSuite) isCorrupted(offset int64) error {
-	reader, err := NewAofRotateReader(ts.tempDir, offset, ts.storer, nil, true)
+	reader, err := NewAofRotateReader(ts.tempDir, offset, ts.storer, nil, true, false)
 	if err == nil {
 		reader.closeAof()
 	}
