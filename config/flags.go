@@ -39,6 +39,7 @@ type StorerFilterFlags struct {
 type StorerFlags struct {
 	Dir    string
 	Filter StorerFilterFlags
+	Type   int
 }
 
 type RdbCmdFlags struct {
@@ -81,6 +82,7 @@ func LoadFlags() error {
 
 	flag.StringVar(&flagVar.StorerCmd.Dir, "store.dir", "", "directory")
 	flag.IntVar(&flagVar.StorerCmd.Filter.Db, "store.filter.db", -1, "db")
+	flag.IntVar(&flagVar.StorerCmd.Type, "store.type", 2, "3=rdb&aof,1=rdb,2=aof")
 	storeFileterKeys := flag.String("store.filter.keys", "", "keys")
 
 	tmpCfg := Config{}
