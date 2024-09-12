@@ -92,6 +92,10 @@ func (r *RedisConn) Close() error {
 	return nil
 }
 
+func (r *RedisConn) ClusterMultiDb() bool {
+	return false
+}
+
 func (r *RedisConn) RedisType() config.RedisType {
 	return config.RedisTypeStandalone
 }

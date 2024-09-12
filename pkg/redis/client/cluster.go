@@ -20,6 +20,7 @@ type ClusterRedis struct {
 	batcher  *cluster.Batch
 	cfg      config.RedisConfig
 	logger   log.Logger
+	options  *cluster.Options
 }
 
 type reply struct {
@@ -42,6 +43,7 @@ func NewRedisCluster(cfg config.RedisConfig) (Redis, error) {
 	if cfg.GetClusterOptions() != nil {
 		options.HandleAskError = cfg.GetClusterOptions().HandleAskErr
 		options.HandleMoveError = cfg.GetClusterOptions().HandleMoveErr
+		options.SupportMultiDb = cfg.GetClusterOptions().SupportMultiDb
 	}
 	cc, err := cluster.NewCluster(options)
 	if err != nil {
@@ -52,6 +54,7 @@ func NewRedisCluster(cfg config.RedisConfig) (Redis, error) {
 		recvChan: make(chan reply, RecvChanSize),
 		cfg:      cfg,
 		logger:   log.WithLogger(config.LogModuleName("[Redis cluster] ")),
+		options:  options,
 	}, nil
 }
 
@@ -143,6 +146,10 @@ func (cc *ClusterRedis) BufioReader() *bufio.Reader {
 
 func (cc *ClusterRedis) BufioWriter() *bufio.Writer {
 	return nil
+}
+
+func (cc *ClusterRedis) ClusterMultiDb() bool {
+	return cc.options.SupportMultiDb
 }
 
 // send batcher and put the return into recvChan

@@ -50,6 +50,8 @@ type RedisOutput struct {
 	checkpointInMem checkpoint.CheckpointInfo
 
 	outFilter *filter.RedisKeyFilter
+
+	started int
 }
 
 var (
@@ -230,6 +232,14 @@ func (ro *RedisOutput) SetRunId(ctx context.Context, id string) error {
 }
 
 func (ro *RedisOutput) Send(ctx context.Context, reader *store.Reader) error {
+	if ro.started > 0 {
+		_, err := ro.StartPoint(ctx, []string{ro.cfg.RunId}) // startDbId
+		if err != nil {
+			return err
+		}
+	}
+
+	ro.started++
 	if reader.IsAof() {
 		return ro.SendAof(ctx, reader)
 	}
@@ -1277,6 +1287,8 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 			lastOffset = item.Offset
 			if item.Cmd == "ping" { // skip ping command, keepaliveTicker handle it[multi/exec, ping issue for cluster]
 				continue
+			} else if item.Cmd == "select" && !shouldUpdateCP {
+				shouldUpdateCP = true
 			}
 
 			txnStatus, needFlush = transactionStatus(item.Cmd, txnStatus)
@@ -1348,7 +1360,12 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 			needFlush = true
 		}
 
+		quit := replayWait.IsClosed()
 		if needFlush {
+			if quit {
+				shouldUpdateCP = true
+			}
+
 			// @TODO non-transaction : update checkpoint everytime, update checkpoint is a hotspot operation
 			err := sendFunc(transactionBatch, shouldUpdateCP, lastOffset)
 			if err != nil {
@@ -1357,7 +1374,7 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 			needFlush = false
 			inTransaction = false
 		}
-		if replayWait.IsClosed() {
+		if quit {
 			return nil
 		}
 	}

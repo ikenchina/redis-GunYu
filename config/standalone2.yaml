@@ -8,7 +8,6 @@ input:
     addresses: [127.0.0.1:6379]
     type: standalone
   mode: dynamic
-  syncDelayTestKey: redis-GunYu-syncDelay-testKey
   syncFrom: prefer_slave
 channel:
   storer:
