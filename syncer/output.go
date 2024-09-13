@@ -948,6 +948,7 @@ func (ro *RedisOutput) sendCmdsInTransaction(replayWait usync.WaitCloser, conn c
 			needBatch = true
 		}
 		batcher := conn.NewBatcher()
+		defer batcher.Release()
 
 		if needBatch {
 			batcher.Put("multi")
@@ -1215,6 +1216,7 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 			ro.logger.Errorf("exec error %v", err)
 			failCounter.Inc(ro.cfg.InputName)
 			batchSendCounter.Add(1, ro.cfg.InputName, transactionLabel, "error")
+			batcher.Release()
 			return err
 		}
 
@@ -1226,6 +1228,7 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 		if err != nil {
 			failCounter.Add(float64(cmdCounter), ro.cfg.InputName)
 			batchSendCounter.Add(1, ro.cfg.InputName, transactionLabel, "error")
+			batcher.Release()
 			return err
 		}
 
@@ -1240,6 +1243,8 @@ func (ro *RedisOutput) sendCmdsBatch(replayWait usync.WaitCloser, conn client.Re
 		}
 
 		queuedByteSize = 0
+
+		batcher.Release()
 		return nil
 	}
 

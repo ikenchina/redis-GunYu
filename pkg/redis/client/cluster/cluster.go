@@ -283,7 +283,7 @@ func (cluster *Cluster) handleReply(node *redisNode, reply interface{}, cmd stri
 }
 
 func (cluster *Cluster) NewBatcher() common.CmdBatcher {
-	return cluster.NewBatch()
+	return cluster.GetBatch()
 }
 
 // Close cluster connection, any subsequent method call will fail.

@@ -214,6 +214,10 @@ type batcher struct {
 	cmdArgs [][]interface{}
 }
 
+func (tb *batcher) Release() {
+
+}
+
 func (tb *batcher) Put(cmd string, args ...interface{}) error {
 	tb.cmds = append(tb.cmds, cmd)
 	tb.cmdArgs = append(tb.cmdArgs, args)

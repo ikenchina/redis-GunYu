@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/mgtv-tech/redis-GunYu/pkg/redis/client/common"
 	"github.com/mgtv-tech/redis-GunYu/pkg/util"
@@ -26,35 +25,47 @@ import (
 
 // Batch pack multiple commands, which should be supported by Do method.
 type Batch struct {
-	cluster     *Cluster
-	batches     []nodeBatch
-	index       []int
-	err         error
-	batcherPool sync.Pool
+	cluster *Cluster
+	batches []nodeBatch
+	index   []int
+	err     error
 }
 
 type nodeBatch struct {
 	node *redisNode
 	cmds []nodeCommand
+	conn *redisConn
 
 	err  error
 	done chan int
 }
 
 type nodeCommand struct {
-	cmd   string
-	args  []interface{}
-	reply interface{}
-	err   error
+	cmd       string
+	args      []interface{}
+	reply     interface{}
+	err       error
+	db        int
+	needReply bool
 }
 
 // NewBatch create a new batch to pack mutiple commands.
-func (cluster *Cluster) NewBatch() *Batch {
+func (cluster *Cluster) GetBatch() *Batch {
 	return &Batch{
 		cluster: cluster,
 		batches: make([]nodeBatch, 0),
 		index:   make([]int, 0),
 	}
+	//return cluster.batcherPool.Get().(*Batch)
+}
+
+func (cluster *Cluster) PutBatch(b *Batch) {
+	cluster.batcherPool.Put(b)
+}
+
+func (tb *Batch) Release() {
+	// @TODO compute size of args?
+	// tb.cluster.PutBatch(tb)
 }
 
 func (tb *Batch) joinError(err error) error {
@@ -62,9 +73,16 @@ func (tb *Batch) joinError(err error) error {
 	return err
 }
 
+func (batch *Batch) Put(cmd string, args ...interface{}) error {
+	if batch.cluster.supportMultiDb {
+		return batch.put2(cmd, args...)
+	}
+	return batch.put(cmd, args...)
+}
+
 // Put add a redis command to batch, DO NOT put MGET/MSET/MSETNX.
 // it ignores multi/exec transaction
-func (batch *Batch) Put(cmd string, args ...interface{}) error {
+func (batch *Batch) put(cmd string, args ...interface{}) error {
 
 	switch strings.ToUpper(cmd) {
 	case "KEYS":
@@ -111,6 +129,81 @@ func (batch *Batch) Put(cmd string, args ...interface{}) error {
 				node: node,
 				cmds: []nodeCommand{{cmd: cmd, args: args}},
 				done: make(chan int)})
+		batch.index = append(batch.index, i)
+	}
+
+	return nil
+}
+
+// Put add a redis command to batch, DO NOT put MGET/MSET/MSETNX.
+// it ignores multi/exec transaction
+func (batch *Batch) put2(cmd string, args ...interface{}) error {
+
+	switch strings.ToUpper(cmd) {
+	case "KEYS":
+		nodes := batch.cluster.getAllNodes()
+
+		for i, node := range nodes {
+			batch.batches = append(batch.batches,
+				nodeBatch{
+					node: node,
+					cmds: []nodeCommand{{cmd: cmd, args: args}},
+					done: make(chan int)})
+			batch.index = append(batch.index, i)
+		}
+		return nil
+	}
+
+	node, err := batch.cluster.ChooseNodeWithCmd(cmd, args...)
+	if err != nil {
+		err = fmt.Errorf("run ChooseNodeWithCmd error : %w", err)
+		return batch.joinError(err)
+	}
+	if node == nil {
+		// node is nil means no need to put
+		return nil
+	}
+	cmdDb := batch.cluster.CurrentDb()
+
+	var i int
+	for i = 0; i < len(batch.batches); i++ {
+		if batch.batches[i].node == node {
+			prevCmd := &batch.batches[i].cmds[len(batch.batches[i].cmds)-1]
+			if prevCmd.db != cmdDb {
+				batch.batches[i].cmds = append(batch.batches[i].cmds,
+					nodeCommand{cmd: "SELECT", args: []interface{}{cmdDb}, db: prevCmd.db, needReply: false})
+			}
+			batch.batches[i].cmds = append(batch.batches[i].cmds,
+				nodeCommand{cmd: cmd, args: args, db: cmdDb, needReply: true})
+
+			batch.index = append(batch.index, i)
+			break
+		}
+	}
+
+	if i == len(batch.batches) {
+		if batch.cluster.transactionEnable && len(batch.batches) == 1 {
+			return batch.joinError(common.ErrCrossSlots)
+		}
+		conn, err := node.getConn()
+		if err != nil {
+			return err
+		}
+
+		nb := nodeBatch{
+			node: node,
+			done: make(chan int),
+			conn: conn,
+		}
+
+		cdb := conn.getDb()
+		if cdb != cmdDb {
+			nb.cmds = append(nb.cmds, nodeCommand{cmd: "SELECT", args: []interface{}{cmdDb}, db: cdb, needReply: false})
+		}
+
+		nb.cmds = append(nb.cmds, nodeCommand{cmd: cmd, args: args, db: cmdDb, needReply: true})
+
+		batch.batches = append(batch.batches, nb)
 		batch.index = append(batch.index, i)
 	}
 

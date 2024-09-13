@@ -101,6 +101,10 @@ func (cc *ClusterRedis) NewBatcher() common.CmdBatcher {
 	return cc.client.NewBatcher()
 }
 
+func (cr *ClusterRedis) ReleaseBatcher(b common.CmdBatcher) {
+
+}
+
 // @TODO
 // multi/exec : if slots are crossing, doesn't return error
 func (cc *ClusterRedis) Send(cmd string, args ...interface{}) error {
@@ -118,7 +122,7 @@ func (cc *ClusterRedis) SendAndFlush(cmd string, args ...interface{}) error {
 // not thread safe
 func (cc *ClusterRedis) getBatcher() *cluster.Batch {
 	if cc.batcher == nil {
-		cc.batcher = cc.client.NewBatch()
+		cc.batcher = cc.client.GetBatch()
 	}
 	return cc.batcher
 }
