@@ -28,6 +28,7 @@ type reply struct {
 	err    error
 }
 
+// it is not thread safe
 func NewRedisCluster(cfg config.RedisConfig) (Redis, error) {
 	options := &cluster.Options{
 		StartNodes:  cfg.Addresses,

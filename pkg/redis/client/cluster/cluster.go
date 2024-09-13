@@ -87,6 +87,8 @@ type Cluster struct {
 
 	supportMultiDb bool
 	selectDb       atomic.Int32
+
+	batcherPool sync.Pool
 }
 
 type updateMesg struct {
@@ -110,6 +112,16 @@ func NewCluster(options *Options) (*Cluster, error) {
 		handleAskError:  options.HandleAskError,
 		logger:          log.WithLogger(config.LogModuleName("[redis cluster] ")),
 		safeRand:        util.NewSafeRand(time.Now().Unix()),
+	}
+
+	cluster.batcherPool = sync.Pool{
+		New: func() any {
+			return &Batch{
+				cluster: cluster,
+				batches: make([]nodeBatch, 0),
+				index:   make([]int, 0),
+			}
+		},
 	}
 
 	errList := make([]error, 0)

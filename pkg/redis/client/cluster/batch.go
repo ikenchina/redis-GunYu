@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/mgtv-tech/redis-GunYu/pkg/redis/client/common"
 	"github.com/mgtv-tech/redis-GunYu/pkg/util"
@@ -25,10 +26,11 @@ import (
 
 // Batch pack multiple commands, which should be supported by Do method.
 type Batch struct {
-	cluster *Cluster
-	batches []nodeBatch
-	index   []int
-	err     error
+	cluster     *Cluster
+	batches     []nodeBatch
+	index       []int
+	err         error
+	batcherPool sync.Pool
 }
 
 type nodeBatch struct {
